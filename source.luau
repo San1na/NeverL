@@ -6026,6 +6026,34 @@ function NeverLose:CreateWindow(Config)
 		ConfigSignal:Connect(ConfigLib.SetRender);
 		ConfigLib.UnsafeThread = nil;
 		ConfigLib.SelectedConfig = "Default";
+		ConfigLib.SelectedConfigFile = ".last_config";
+		ConfigLib.SelectedConfigPath = Window.ConfigFolder..'/'..ConfigLib.SelectedConfigFile;
+
+		function ConfigLib:IsConfigNameUsable(cfg_name)
+			return cfg_name and cfg_name:byte() and cfg_name ~= ConfigLib.SelectedConfigFile and not cfg_name:find('/',1,true) and not cfg_name:find('\\',1,true);
+		end;
+
+		function ConfigLib:SaveSelectedConfig(cfg_name)
+			if ConfigLib:IsConfigNameUsable(cfg_name) then
+				if not isfolder(Window.ConfigFolder) then
+					makefolder(Window.ConfigFolder);
+				end;
+				writefile(ConfigLib.SelectedConfigPath,cfg_name);
+			end;
+		end;
+
+		function ConfigLib:GetSelectedConfig()
+			if isfile(ConfigLib.SelectedConfigPath) then
+				local cfg_name = readfile(ConfigLib.SelectedConfigPath);
+				if cfg_name then
+					cfg_name = cfg_name:gsub("^%s+",""):gsub("%s+$","");
+					if ConfigLib:IsConfigNameUsable(cfg_name) and isfile(Window.ConfigFolder..'/'..cfg_name) then
+						return cfg_name;
+					end;
+				end;
+			end;
+			return "Default";
+		end;
 
 		local UpdateSize = LPH_NO_VIRTUALIZE(function()
 			local size = TextService:GetTextSize(ConfigName.Text , ConfigName.TextSize,ConfigName.Font,Vector2.new(math.huge,math.huge));
@@ -6110,7 +6138,9 @@ function NeverLose:CreateWindow(Config)
 
 				local name = string.sub(v , #Window.ConfigFolder + 2);
 
-				table.insert(ConfigList , name)
+				if name ~= ConfigLib.SelectedConfigFile then
+					table.insert(ConfigList , name)
+				end;
 			end;
 
 			for i,ConfigNameStr in next , ConfigList do
@@ -6304,6 +6334,12 @@ function NeverLose:CreateWindow(Config)
 					
 					delfile(Window.ConfigFolder..'/'..ConfigNameStr);
 
+					if ConfigLib.SelectedConfig == ConfigNameStr then
+						ConfigLib.SelectedConfig = "Default";
+						ConfigName.Text = "Default";
+						ConfigLib:SaveSelectedConfig("Default");
+					end;
+
 					UpdateSize();
 
 					ConfigLib:RefreshConfig();
@@ -6322,6 +6358,7 @@ function NeverLose:CreateWindow(Config)
 
 						ConfigLib.SelectedConfig = ConfigNameStr;
 						ConfigName.Text = ConfigNameStr;
+						ConfigLib:SaveSelectedConfig(ConfigNameStr);
 
 						UpdateSize();
 
@@ -6367,32 +6404,34 @@ function NeverLose:CreateWindow(Config)
 		end;
 		
 		task.delay(1,function()
-			if ConfigLib.SelectedConfig == "Default" then
-				local path = Window.ConfigFolder..'/Default';
-				local ConfigNameStr = "Default";
+			local ConfigNameStr = ConfigLib:GetSelectedConfig();
+			local path = Window.ConfigFolder..'/'..ConfigNameStr;
+			
+			if isfile(path) then
+				local data = readfile(path);
+
+				ConfigLib:LoadData(data);
+
+				ConfigLib.SelectedConfig = ConfigNameStr;
+				ConfigName.Text = ConfigNameStr;
+				ConfigLib:SaveSelectedConfig(ConfigNameStr);
+
+				UpdateSize();
+
+				ConfigLib:RefreshConfig();
+
+				Logging.new("folder","Loaded "..tostring(ConfigNameStr).." Config",3.5);
 				
-				if isfile(path) then
-					local data = readfile(path);
-
-					ConfigLib:LoadData(data);
-
-					ConfigLib.SelectedConfig = ConfigNameStr;
-					ConfigName.Text = ConfigNameStr;
-
-					UpdateSize();
-
-					ConfigLib:RefreshConfig();
-
-					Logging.new("folder","Loaded Default Config",3.5);
-					
-					task.spawn(function()
-						while true do task.wait(5.75);
-							if isfile(path) and ConfigLib.SelectedConfig == "Default" then
-								writefile(Window.ConfigFolder..'/Default',ConfigLib:GetData(true));
-							end;
+				task.spawn(function()
+					while true do task.wait(5.75);
+						local selected = ConfigLib.SelectedConfig or "Default";
+						local selectedPath = Window.ConfigFolder..'/'..selected;
+						if ConfigLib:IsConfigNameUsable(selected) and isfile(selectedPath) then
+							ConfigLib:SaveSelectedConfig(selected);
+							writefile(selectedPath,ConfigLib:GetData(true));
 						end;
-					end);
-				end;
+					end;
+				end);
 			end;
 		end);
 
@@ -6422,12 +6461,13 @@ function NeverLose:CreateWindow(Config)
 		local mv = NeverLose:CreateInput(LoadConfig , function()
 			local cfg_name = TextBox.Text;
 
-			if cfg_name and cfg_name:byte() and not cfg_name:find('/',1,true) and not cfg_name:find('\\',1,true) then
+			if ConfigLib:IsConfigNameUsable(cfg_name) then
 				cfg_name = string.sub(cfg_name , 1 , 24);
 
 				writefile(Window.ConfigFolder..'/'..cfg_name,ConfigLib:GetData());
 				ConfigLib.SelectedConfig = cfg_name;
 				ConfigName.Text = cfg_name;
+				ConfigLib:SaveSelectedConfig(cfg_name);
 
 				Logging.new("folder",'Created '..tostring(cfg_name),3.5)
 
