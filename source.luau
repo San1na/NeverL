@@ -6656,6 +6656,7 @@ function NeverLose:CreateWindow(Config)
 
 		Shadow:Render(true);
 
+		Watermark_lb.Frame = Watermark;
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = true;
 
