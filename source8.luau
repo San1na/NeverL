@@ -6804,35 +6804,28 @@ function NeverLose:CreateWindow(Config)
 	end;
 
 	do
-		local _NL_Collapsed = false
-		local _NL_CW = 50
-		local _NL_CH = 50
+		local _NL_Collapsed    = false
+		local _NL_CW           = 50
+		local _NL_CH           = 50
 		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-		local _NL_FadeInfo    = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-		local _NL_InstantInfo = TweenInfo.new(0)
+		local _NL_FadeInfo     = TweenInfo.new(0.15, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+		local _NL_InstantInfo  = TweenInfo.new(0)
 		local _NL_SavedSize    = nil
 		local _NL_SavedAbsW    = 0
 		local _NL_SavedAbsH    = 0
-		local _NL_SavedBgTrans = 0.0255
-		local _NL_SavedParent  = nil
-
-		local function _NL_ApplyCollapsedVisuals()
-			LeftScrollingFrame.Visible = false
-			BottomFrame.Visible = false
-			RightMenuFrame.Visible = false
-		end
+		local _NL_SavedLogoPos = nil
+		local _NL_LogoCenteredPos = UDim2.new(0, math.floor((_NL_CW - 35) / 2), 0.5, 0)
 
 		local function _NL_SetCollapsed(state)
 			_NL_Collapsed = state
 			if state then
 				_NL_SavedSize    = WindowFrame.Size
-				_NL_SavedBgTrans = WindowFrame.BackgroundTransparency
-				_NL_SavedParent  = WindowFrame.Parent
-				local sz = WindowFrame.AbsoluteSize
-				_NL_SavedAbsW = sz.X
-				_NL_SavedAbsH = sz.Y
+				_NL_SavedLogoPos = LogoImage.Position
+				local sz          = WindowFrame.AbsoluteSize
+				_NL_SavedAbsW    = sz.X
+				_NL_SavedAbsH    = sz.Y
 
-				-- Hide everything instantly so nothing sticks outside the shrinking frame
+				-- Instantly hide everything except the logo
 				BottomFrame.Visible        = false
 				RightMenuFrame.Visible     = false
 				LeftScrollingFrame.Visible = false
@@ -6853,22 +6846,18 @@ function NeverLose:CreateWindow(Config)
 				for _, c in next, LeftScrollingFrame:GetChildren() do
 					if c:IsA("TextLabel") then c.TextTransparency = 1 end
 				end
-				-- Ensure logo stays visible
-				LogoImage.ImageTransparency = 0
 
-				-- Animate: top-left stays fixed, background fades out
-				-- Note: BackgroundTransparency=1 triggers renderParentWindow (Parent=nil)
-				-- Our counter-handler below restores it while collapsed
-				local p  = WindowFrame.Position
+				-- Shrink window; center the logo inside the 50x50 box
+				local p = WindowFrame.Position
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size                   = UDim2.new(0, _NL_CW, 0, _NL_CH),
-					Position               = UDim2.new(p.X.Scale, p.X.Offset + (_NL_CW/2 - sz.X/2),
-					                                    p.Y.Scale, p.Y.Offset + (_NL_CH/2 - sz.Y/2)),
-					BackgroundTransparency = 1,
+					Size     = UDim2.new(0, _NL_CW, 0, _NL_CH),
+					Position = UDim2.new(p.X.Scale, p.X.Offset + (_NL_CW/2 - sz.X/2),
+					                     p.Y.Scale, p.Y.Offset + (_NL_CH/2 - sz.Y/2)),
 				})
-				NeverLose.PlayAnimate(UIStroke,   _NL_CollapseInfo, { Transparency = 1 })
-				NeverLose.PlayAnimate(LineFrame,  _NL_CollapseInfo, { BackgroundTransparency = 1 })
-				-- Snap LeftMenuFrame width after animation (no tween = no jitter)
+				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
+					Position = _NL_LogoCenteredPos,
+				})
+				-- Snap LeftMenuFrame width after animation finishes (no separate tween = no jitter)
 				task.delay(0.32, function()
 					if _NL_Collapsed then LeftMenuFrame.Size = UDim2.new(0, _NL_CW, 1, 0) end
 				end)
@@ -6878,20 +6867,23 @@ function NeverLose:CreateWindow(Config)
 				LeftScrollingFrame.Visible = true
 				BottomFrame.Visible        = true
 				RightMenuFrame.Visible     = true
-				-- Expand from current icon position (top-left stays fixed)
+				-- Clip during expansion so elements reveal gradually as window grows
+				WindowFrame.ClipsDescendants = true
+
+				-- Expand from wherever the icon was dragged to
 				local cp = WindowFrame.Position
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size                   = _NL_SavedSize or Window.Size,
-					Position               = UDim2.new(cp.X.Scale, cp.X.Offset + (_NL_SavedAbsW/2 - _NL_CW/2),
-					                                    cp.Y.Scale, cp.Y.Offset + (_NL_SavedAbsH/2 - _NL_CH/2)),
-					BackgroundTransparency = _NL_SavedBgTrans,
+					Size     = _NL_SavedSize or Window.Size,
+					Position = UDim2.new(cp.X.Scale, cp.X.Offset + (_NL_SavedAbsW/2 - _NL_CW/2),
+					                     cp.Y.Scale, cp.Y.Offset + (_NL_SavedAbsH/2 - _NL_CH/2)),
 				})
-				NeverLose.PlayAnimate(UIStroke,  _NL_CollapseInfo, { Transparency = 0.650 })
-				NeverLose.PlayAnimate(LineFrame, _NL_CollapseInfo, { BackgroundTransparency = 0.650 })
-				NeverLose.PlayAnimate(WindowName,      _NL_FadeInfo, { TextTransparency = 0 })
-				NeverLose.PlayAnimate(WindowContent,   _NL_FadeInfo, { TextTransparency = 0.650 })
-				NeverLose.PlayAnimate(AccountName,     _NL_FadeInfo, { TextTransparency = 0 })
-				NeverLose.PlayAnimate(ExpireLabel,     _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
+					Position = _NL_SavedLogoPos or UDim2.new(0, 10, 0.5, 0),
+				})
+				NeverLose.PlayAnimate(WindowName,        _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(WindowContent,     _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(AccountName,       _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(ExpireLabel,       _NL_FadeInfo, { TextTransparency = 0.650 })
 				NeverLose.PlayAnimate(UserSettingButton, _NL_FadeInfo, { TextTransparency = 0.5 })
 				for i, tab in next, Window.Tabs do
 					if tab.Idx then
@@ -6907,6 +6899,9 @@ function NeverLose:CreateWindow(Config)
 				for _, c in next, LeftScrollingFrame:GetChildren() do
 					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 0.5 }) end
 				end
+				task.delay(0.35, function()
+					if not _NL_Collapsed then WindowFrame.ClipsDescendants = false end
+				end)
 			end
 		end
 
@@ -6917,9 +6912,9 @@ function NeverLose:CreateWindow(Config)
 		_NL_CollapseBtn.ZIndex = 20
 		_NL_CollapseBtn.Parent = HeadFrame
 
-		local _NL_DragOrigin  = nil
-		local _NL_FrameOrigin = nil
-		local _NL_IsDragging  = false
+		local _NL_DragOrigin    = nil
+		local _NL_FrameOrigin   = nil
+		local _NL_IsDragging    = false
 		local _NL_DragThreshold = 6
 
 		NeverLose:AddSignal(_NL_CollapseBtn.InputBegan:Connect(function(input)
@@ -6956,30 +6951,16 @@ function NeverLose:CreateWindow(Config)
 			_NL_IsDragging  = false
 		end))
 
-		-- Counter-handler: renderParentWindow sets Parent=nil when BackgroundTransparency>0.9.
-		-- We re-parent/re-show the frame while in collapsed state so the icon stays visible.
-		NeverLose:AddSignal(WindowFrame:GetPropertyChangedSignal('BackgroundTransparency'):Connect(function()
-			if not _NL_Collapsed then return end
-			if WindowFrame.BackgroundTransparency > 0.9 then
-				WindowFrame.Visible = true
-				if _NL_SavedParent then WindowFrame.Parent = _NL_SavedParent end
-				LogoImage.ImageTransparency = 0
-			end
-		end))
-
-		-- Runs AFTER SetRender's own Signal handler; overrides its size+bg tween
+		-- Runs AFTER SetRender's own Signal handler; instantly overrides its size tween
 		NeverLose:AddSignal(Window.Signal:Connect(function(value)
 			if not _NL_Collapsed then return end
 			WindowFrame.Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
-			WindowFrame.BackgroundTransparency = 1
-			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, {
-				Size = UDim2.new(0, _NL_CW, 0, _NL_CH),
-				BackgroundTransparency = 1,
-			})
-			NeverLose.PlayAnimate(UIStroke, _NL_InstantInfo, { Transparency = 1 })
-			LogoImage.ImageTransparency = 0
+			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, { Size = UDim2.new(0, _NL_CW, 0, _NL_CH) })
+			NeverLose.PlayAnimate(LogoImage,   _NL_InstantInfo, { Position = _NL_LogoCenteredPos })
 			if value then
-				_NL_ApplyCollapsedVisuals()
+				LeftScrollingFrame.Visible = false
+				BottomFrame.Visible        = false
+				RightMenuFrame.Visible     = false
 				NeverLose.PlayAnimate(WindowName,        _NL_InstantInfo, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(WindowContent,     _NL_InstantInfo, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(AccountName,       _NL_InstantInfo, { TextTransparency = 1 })
