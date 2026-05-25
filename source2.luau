@@ -6805,16 +6805,21 @@ function NeverLose:CreateWindow(Config)
 
 	do
 		local _NL_Collapsed = false
-		local _NL_CollapsedWidth = 50
+		local _NL_CW = 50
+		local _NL_CH = 50
 		local _NL_CollapseInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		local _NL_SavedPos = nil
+		local _NL_SavedSize = nil
 
 		local function _NL_SetCollapsed(state)
 			_NL_Collapsed = state
 			if state then
+				_NL_SavedPos = WindowFrame.Position
+				_NL_SavedSize = WindowFrame.Size
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size = UDim2.new(Window.Size.X.Scale, _NL_CollapsedWidth, Window.Size.Y.Scale, Window.Size.Y.Offset)
+					Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
 				})
-				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, _NL_CollapsedWidth, 1, 0) })
+				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, _NL_CW, 1, 0) })
 				NeverLose.PlayAnimate(WindowName, SlowyTween, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(WindowContent, SlowyTween, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(AccountName, SlowyTween, { TextTransparency = 1 })
@@ -6836,7 +6841,10 @@ function NeverLose:CreateWindow(Config)
 			else
 				_NL_Collapsed = false
 				RightMenuFrame.Visible = true
-				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, { Size = Window.Size })
+				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
+					Size = _NL_SavedSize or Window.Size,
+					Position = _NL_SavedPos or WindowFrame.Position,
+				})
 				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, 175, 1, 0) })
 				NeverLose.PlayAnimate(WindowName, SlowyTween, { TextTransparency = 0 })
 				NeverLose.PlayAnimate(WindowContent, SlowyTween, { TextTransparency = 0.650 })
@@ -6866,16 +6874,52 @@ function NeverLose:CreateWindow(Config)
 		_NL_CollapseBtn.Text = ""
 		_NL_CollapseBtn.ZIndex = 20
 		_NL_CollapseBtn.Parent = HeadFrame
-		NeverLose:AddSignal(_NL_CollapseBtn.MouseButton1Click:Connect(function()
-			_NL_SetCollapsed(not _NL_Collapsed)
+
+		local _NL_DragOrigin = nil
+		local _NL_FrameOrigin = nil
+		local _NL_IsDragging = false
+		local _NL_DragThreshold = 6
+
+		NeverLose:AddSignal(_NL_CollapseBtn.InputBegan:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			_NL_IsDragging = false
+			_NL_DragOrigin = UserInputService:GetMouseLocation()
+			_NL_FrameOrigin = WindowFrame.Position
+		end))
+
+		NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
+			if not _NL_Collapsed or not _NL_DragOrigin then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local mp = UserInputService:GetMouseLocation()
+			local delta = mp - _NL_DragOrigin
+			if not _NL_IsDragging and (math.abs(delta.X) > _NL_DragThreshold or math.abs(delta.Y) > _NL_DragThreshold) then
+				_NL_IsDragging = true
+			end
+			if _NL_IsDragging then
+				WindowFrame.Position = UDim2.new(
+					_NL_FrameOrigin.X.Scale, _NL_FrameOrigin.X.Offset + delta.X,
+					_NL_FrameOrigin.Y.Scale, _NL_FrameOrigin.Y.Offset + delta.Y
+				)
+			end
+		end))
+
+		NeverLose:AddSignal(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			if not _NL_DragOrigin then return end
+			if not _NL_IsDragging then
+				_NL_SetCollapsed(not _NL_Collapsed)
+			end
+			_NL_DragOrigin = nil
+			_NL_FrameOrigin = nil
+			_NL_IsDragging = false
 		end))
 
 		NeverLose:AddSignal(Window.Signal:Connect(function(value)
-			if not value and _NL_Collapsed then
-				_NL_Collapsed = false
-				RightMenuFrame.Visible = true
-				LeftMenuFrame.Size = UDim2.new(0, 175, 1, 0)
-				WindowFrame.Size = Window.Size
+			if value and _NL_Collapsed then
+				RightMenuFrame.Visible = false
+				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
+					Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
+				})
 			end
 		end))
 	end
