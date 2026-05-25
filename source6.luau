@@ -6830,11 +6830,29 @@ function NeverLose:CreateWindow(Config)
 				_NL_SavedAbsW = sz.X
 				_NL_SavedAbsH = sz.Y
 
-				-- Hide overlapping elements immediately; clip so nothing sticks out
+				-- Hide everything instantly so nothing sticks outside the shrinking frame
 				BottomFrame.Visible        = false
 				RightMenuFrame.Visible     = false
 				LeftScrollingFrame.Visible = false
-				WindowFrame.ClipsDescendants = true
+				WindowName.TextTransparency        = 1
+				WindowContent.TextTransparency     = 1
+				AccountName.TextTransparency       = 1
+				ExpireLabel.TextTransparency       = 1
+				UserSettingButton.TextTransparency = 1
+				for _, tab in next, Window.Tabs do
+					if tab.Idx then
+						for _, c in next, tab.Idx:GetChildren() do
+							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
+								c.TextTransparency = 1
+							end
+						end
+					end
+				end
+				for _, c in next, LeftScrollingFrame:GetChildren() do
+					if c:IsA("TextLabel") then c.TextTransparency = 1 end
+				end
+				-- Ensure logo stays visible
+				LogoImage.ImageTransparency = 0
 
 				-- Animate: top-left stays fixed, background+stroke fade out
 				local p  = WindowFrame.Position
@@ -6845,30 +6863,12 @@ function NeverLose:CreateWindow(Config)
 					BackgroundTransparency = 1,
 				})
 				NeverLose.PlayAnimate(UIStroke, _NL_CollapseInfo, { Transparency = 1 })
-				-- Snap LeftMenuFrame width after animation (no separate tween = no jitter)
+				-- Snap LeftMenuFrame width after animation (no tween = no jitter)
 				task.delay(0.32, function()
 					if _NL_Collapsed then LeftMenuFrame.Size = UDim2.new(0, _NL_CW, 1, 0) end
 				end)
-				NeverLose.PlayAnimate(WindowName,        _NL_FadeInfo, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(WindowContent,     _NL_FadeInfo, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(AccountName,       _NL_FadeInfo, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(ExpireLabel,       _NL_FadeInfo, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(UserSettingButton, _NL_FadeInfo, { TextTransparency = 1 })
-				for _, tab in next, Window.Tabs do
-					if tab.Idx then
-						for _, c in next, tab.Idx:GetChildren() do
-							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
-								NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 1 })
-							end
-						end
-					end
-				end
-				for _, c in next, LeftScrollingFrame:GetChildren() do
-					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 1 }) end
-				end
 			else
 				_NL_Collapsed = false
-				-- Snap LeftMenuFrame to full width immediately (ClipsDescendants hides it until frame grows)
 				LeftMenuFrame.Size         = UDim2.new(0, 175, 1, 0)
 				LeftScrollingFrame.Visible = true
 				BottomFrame.Visible        = true
@@ -6901,9 +6901,6 @@ function NeverLose:CreateWindow(Config)
 				for _, c in next, LeftScrollingFrame:GetChildren() do
 					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 0.5 }) end
 				end
-				task.delay(0.35, function()
-					if not _NL_Collapsed then WindowFrame.ClipsDescendants = false end
-				end)
 			end
 		end
 
@@ -6963,6 +6960,7 @@ function NeverLose:CreateWindow(Config)
 				BackgroundTransparency = 1,
 			})
 			NeverLose.PlayAnimate(UIStroke, _NL_InstantInfo, { Transparency = 1 })
+			LogoImage.ImageTransparency = 0
 			if value then
 				_NL_ApplyCollapsedVisuals()
 			end
