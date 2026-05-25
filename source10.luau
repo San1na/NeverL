@@ -6847,15 +6847,17 @@ function NeverLose:CreateWindow(Config)
 					if c:IsA("TextLabel") then c.TextTransparency = 1 end
 				end
 
-				-- Clip overflow so LeftMenuFrame (175px) doesn't bleed outside shrinking WindowFrame
-				WindowFrame.ClipsDescendants = true
+				-- Convert center-anchor position → top-left-anchor position (no visual jump)
+				-- This lets us tween ONLY Size (like SetRender/SetSize), avoiding dual-tween jitter
+				local cp = WindowFrame.Position
+				local tlX = cp.X.Offset - sz.X / 2
+				local tlY = cp.Y.Offset - sz.Y / 2
+				WindowFrame.AnchorPoint = Vector2.new(0, 0)
+				WindowFrame.Position    = UDim2.new(cp.X.Scale, tlX, cp.Y.Scale, tlY)
 
-				-- Shrink window; center the logo inside the 50x50 box
-				local p = WindowFrame.Position
+				-- Animate ONLY Size — top-left corner stays fixed, no position tween, no jitter
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size     = UDim2.new(0, _NL_CW, 0, _NL_CH),
-					Position = UDim2.new(p.X.Scale, p.X.Offset + (_NL_CW/2 - sz.X/2),
-					                     p.Y.Scale, p.Y.Offset + (_NL_CH/2 - sz.Y/2)),
+					Size = UDim2.new(0, _NL_CW, 0, _NL_CH),
 				})
 				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
 					Position = _NL_LogoCenteredPos,
@@ -6866,15 +6868,11 @@ function NeverLose:CreateWindow(Config)
 				LeftScrollingFrame.Visible = true
 				BottomFrame.Visible        = true
 				RightMenuFrame.Visible     = true
-				-- Clip during expansion so elements reveal gradually as window grows
-				WindowFrame.ClipsDescendants = true
 
-				-- Expand from wherever the icon was dragged to
-				local cp = WindowFrame.Position
+				-- Animate ONLY Size (top-left stays fixed = wherever icon was dragged)
+				local finalSize = _NL_SavedSize or Window.Size
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size     = _NL_SavedSize or Window.Size,
-					Position = UDim2.new(cp.X.Scale, cp.X.Offset + (_NL_SavedAbsW/2 - _NL_CW/2),
-					                     cp.Y.Scale, cp.Y.Offset + (_NL_SavedAbsH/2 - _NL_CH/2)),
+					Size = finalSize,
 				})
 				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
 					Position = _NL_SavedLogoPos or UDim2.new(0, 10, 0.5, 0),
@@ -6898,8 +6896,16 @@ function NeverLose:CreateWindow(Config)
 				for _, c in next, LeftScrollingFrame:GetChildren() do
 					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 0.5 }) end
 				end
-				task.delay(0.35, function()
-					if not _NL_Collapsed then WindowFrame.ClipsDescendants = false end
+				-- After expansion: restore center anchor so normal dragging/SetRender work correctly
+				task.delay(0.32, function()
+					if not _NL_Collapsed then
+						local p2 = WindowFrame.Position
+						local hw  = finalSize.X.Offset / 2
+						local hh  = finalSize.Y.Offset / 2
+						WindowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+						WindowFrame.Position    = UDim2.new(p2.X.Scale, p2.X.Offset + hw,
+						                                    p2.Y.Scale, p2.Y.Offset + hh)
+					end
 				end)
 			end
 		end
