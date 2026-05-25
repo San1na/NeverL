@@ -6807,55 +6807,77 @@ function NeverLose:CreateWindow(Config)
 		local _NL_Collapsed = false
 		local _NL_CW = 50
 		local _NL_CH = 50
-		local _NL_CollapseInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-		local _NL_SavedPos = nil
+		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+		local _NL_FadeInfo    = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+		local _NL_InstantInfo = TweenInfo.new(0)
+		local _NL_SavedPos  = nil
 		local _NL_SavedSize = nil
+
+		local function _NL_ApplyCollapsedVisuals()
+			LeftScrollingFrame.Visible = false
+			BottomFrame.Visible = false
+			RightMenuFrame.Visible = false
+			NeverLose.PlayAnimate(WindowName,       _NL_InstantInfo, { TextTransparency = 1 })
+			NeverLose.PlayAnimate(WindowContent,    _NL_InstantInfo, { TextTransparency = 1 })
+		end
 
 		local function _NL_SetCollapsed(state)
 			_NL_Collapsed = state
 			if state then
-				_NL_SavedPos = WindowFrame.Position
+				_NL_SavedPos  = WindowFrame.Position
 				_NL_SavedSize = WindowFrame.Size
+
+				-- Animate position so top-left corner stays fixed while frame shrinks
+				local sz = WindowFrame.AbsoluteSize
+				local p  = WindowFrame.Position
+				local tx = p.X.Offset + (_NL_CW / 2 - sz.X / 2)
+				local ty = p.Y.Offset + (_NL_CH / 2 - sz.Y / 2)
+
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
+					Size     = UDim2.new(0, _NL_CW, 0, _NL_CH),
+					Position = UDim2.new(p.X.Scale, tx, p.Y.Scale, ty),
 				})
 				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, _NL_CW, 1, 0) })
-				NeverLose.PlayAnimate(WindowName, SlowyTween, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(WindowContent, SlowyTween, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(AccountName, SlowyTween, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(ExpireLabel, SlowyTween, { TextTransparency = 1 })
-				NeverLose.PlayAnimate(UserSettingButton, SlowyTween, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(WindowName,      _NL_FadeInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(WindowContent,   _NL_FadeInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(AccountName,     _NL_FadeInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(ExpireLabel,     _NL_FadeInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(UserSettingButton, _NL_FadeInfo, { TextTransparency = 1 })
 				for _, tab in next, Window.Tabs do
 					if tab.Idx then
 						for _, c in next, tab.Idx:GetChildren() do
 							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
-								NeverLose.PlayAnimate(c, SlowyTween, { TextTransparency = 1 })
+								NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 1 })
 							end
 						end
 					end
 				end
 				for _, c in next, LeftScrollingFrame:GetChildren() do
-					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, SlowyTween, { TextTransparency = 1 }) end
+					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 1 }) end
 				end
-				task.delay(0.2, function() if _NL_Collapsed then RightMenuFrame.Visible = false end end)
+				task.delay(0.2, function()
+					if _NL_Collapsed then _NL_ApplyCollapsedVisuals() end
+				end)
 			else
 				_NL_Collapsed = false
+				LeftScrollingFrame.Visible = true
+				BottomFrame.Visible = true
 				RightMenuFrame.Visible = true
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size = _NL_SavedSize or Window.Size,
-					Position = _NL_SavedPos or WindowFrame.Position,
+					Size     = _NL_SavedSize or Window.Size,
+					Position = _NL_SavedPos  or WindowFrame.Position,
 				})
 				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, 175, 1, 0) })
-				NeverLose.PlayAnimate(WindowName, SlowyTween, { TextTransparency = 0 })
-				NeverLose.PlayAnimate(WindowContent, SlowyTween, { TextTransparency = 0.650 })
-				NeverLose.PlayAnimate(AccountName, SlowyTween, { TextTransparency = 0 })
-				NeverLose.PlayAnimate(ExpireLabel, SlowyTween, { TextTransparency = 0.650 })
-				NeverLose.PlayAnimate(UserSettingButton, SlowyTween, { TextTransparency = 0.5 })
+				NeverLose.PlayAnimate(WindowName,      _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(WindowContent,   _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(AccountName,     _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(ExpireLabel,     _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(UserSettingButton, _NL_FadeInfo, { TextTransparency = 0.5 })
 				for i, tab in next, Window.Tabs do
 					if tab.Idx then
 						for _, c in next, tab.Idx:GetChildren() do
 							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
-								NeverLose.PlayAnimate(c, SlowyTween, {
+								NeverLose.PlayAnimate(c, _NL_FadeInfo, {
 									TextTransparency = (i == Window.CurrentTab) and 0 or 0.5
 								})
 							end
@@ -6863,7 +6885,7 @@ function NeverLose:CreateWindow(Config)
 					end
 				end
 				for _, c in next, LeftScrollingFrame:GetChildren() do
-					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, SlowyTween, { TextTransparency = 0.5 }) end
+					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 0.5 }) end
 				end
 			end
 		end
@@ -6875,22 +6897,22 @@ function NeverLose:CreateWindow(Config)
 		_NL_CollapseBtn.ZIndex = 20
 		_NL_CollapseBtn.Parent = HeadFrame
 
-		local _NL_DragOrigin = nil
+		local _NL_DragOrigin  = nil
 		local _NL_FrameOrigin = nil
-		local _NL_IsDragging = false
+		local _NL_IsDragging  = false
 		local _NL_DragThreshold = 6
 
 		NeverLose:AddSignal(_NL_CollapseBtn.InputBegan:Connect(function(input)
 			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-			_NL_IsDragging = false
-			_NL_DragOrigin = UserInputService:GetMouseLocation()
+			_NL_IsDragging  = false
+			_NL_DragOrigin  = UserInputService:GetMouseLocation()
 			_NL_FrameOrigin = WindowFrame.Position
 		end))
 
 		NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
 			if not _NL_Collapsed or not _NL_DragOrigin then return end
 			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-			local mp = UserInputService:GetMouseLocation()
+			local mp    = UserInputService:GetMouseLocation()
 			local delta = mp - _NL_DragOrigin
 			if not _NL_IsDragging and (math.abs(delta.X) > _NL_DragThreshold or math.abs(delta.Y) > _NL_DragThreshold) then
 				_NL_IsDragging = true
@@ -6909,17 +6931,19 @@ function NeverLose:CreateWindow(Config)
 			if not _NL_IsDragging then
 				_NL_SetCollapsed(not _NL_Collapsed)
 			end
-			_NL_DragOrigin = nil
+			_NL_DragOrigin  = nil
 			_NL_FrameOrigin = nil
-			_NL_IsDragging = false
+			_NL_IsDragging  = false
 		end))
 
+		-- Runs AFTER SetRender's own Signal handler; instantly overrides its size tween
 		NeverLose:AddSignal(Window.Signal:Connect(function(value)
-			if value and _NL_Collapsed then
-				RightMenuFrame.Visible = false
-				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
-				})
+			if not _NL_Collapsed then return end
+			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, {
+				Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
+			})
+			if value then
+				_NL_ApplyCollapsedVisuals()
 			end
 		end))
 	end
