@@ -6810,9 +6810,10 @@ function NeverLose:CreateWindow(Config)
 		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
 		local _NL_FadeInfo    = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
 		local _NL_InstantInfo = TweenInfo.new(0)
-		local _NL_SavedSize = nil
-		local _NL_SavedAbsW = 0
-		local _NL_SavedAbsH = 0
+		local _NL_SavedSize    = nil
+		local _NL_SavedAbsW    = 0
+		local _NL_SavedAbsH    = 0
+		local _NL_SavedBgTrans = 0.0255
 
 		local function _NL_ApplyCollapsedVisuals()
 			LeftScrollingFrame.Visible = false
@@ -6823,27 +6824,31 @@ function NeverLose:CreateWindow(Config)
 		local function _NL_SetCollapsed(state)
 			_NL_Collapsed = state
 			if state then
-				_NL_SavedSize = WindowFrame.Size
+				_NL_SavedSize    = WindowFrame.Size
+				_NL_SavedBgTrans = WindowFrame.BackgroundTransparency
 				local sz = WindowFrame.AbsoluteSize
 				_NL_SavedAbsW = sz.X
 				_NL_SavedAbsH = sz.Y
 
-				-- Hide overlapping elements immediately so nothing sticks out during animation
-				BottomFrame.Visible = false
-				RightMenuFrame.Visible = false
+				-- Hide overlapping elements immediately; clip so nothing sticks out
+				BottomFrame.Visible        = false
+				RightMenuFrame.Visible     = false
 				LeftScrollingFrame.Visible = false
 				WindowFrame.ClipsDescendants = true
 
-				-- Animate: top-left corner stays fixed while frame shrinks
+				-- Animate: top-left stays fixed, background+stroke fade out
 				local p  = WindowFrame.Position
-				local tx = p.X.Offset + (_NL_CW / 2 - sz.X / 2)
-				local ty = p.Y.Offset + (_NL_CH / 2 - sz.Y / 2)
-
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size     = UDim2.new(0, _NL_CW, 0, _NL_CH),
-					Position = UDim2.new(p.X.Scale, tx, p.Y.Scale, ty),
+					Size                   = UDim2.new(0, _NL_CW, 0, _NL_CH),
+					Position               = UDim2.new(p.X.Scale, p.X.Offset + (_NL_CW/2 - sz.X/2),
+					                                    p.Y.Scale, p.Y.Offset + (_NL_CH/2 - sz.Y/2)),
+					BackgroundTransparency = 1,
 				})
-				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, _NL_CW, 1, 0) })
+				NeverLose.PlayAnimate(UIStroke, _NL_CollapseInfo, { Transparency = 1 })
+				-- Snap LeftMenuFrame width after animation (no separate tween = no jitter)
+				task.delay(0.32, function()
+					if _NL_Collapsed then LeftMenuFrame.Size = UDim2.new(0, _NL_CW, 1, 0) end
+				end)
 				NeverLose.PlayAnimate(WindowName,        _NL_FadeInfo, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(WindowContent,     _NL_FadeInfo, { TextTransparency = 1 })
 				NeverLose.PlayAnimate(AccountName,       _NL_FadeInfo, { TextTransparency = 1 })
@@ -6863,20 +6868,20 @@ function NeverLose:CreateWindow(Config)
 				end
 			else
 				_NL_Collapsed = false
+				-- Snap LeftMenuFrame to full width immediately (ClipsDescendants hides it until frame grows)
+				LeftMenuFrame.Size         = UDim2.new(0, 175, 1, 0)
 				LeftScrollingFrame.Visible = true
-				BottomFrame.Visible = true
-				RightMenuFrame.Visible = true
-				-- Expand from wherever the icon is now (not the original position)
+				BottomFrame.Visible        = true
+				RightMenuFrame.Visible     = true
+				-- Expand from current icon position (top-left stays fixed)
 				local cp = WindowFrame.Position
-				local expandPos = UDim2.new(
-					cp.X.Scale, cp.X.Offset + (_NL_SavedAbsW / 2 - _NL_CW / 2),
-					cp.Y.Scale, cp.Y.Offset + (_NL_SavedAbsH / 2 - _NL_CH / 2)
-				)
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
-					Size     = _NL_SavedSize or Window.Size,
-					Position = expandPos,
+					Size                   = _NL_SavedSize or Window.Size,
+					Position               = UDim2.new(cp.X.Scale, cp.X.Offset + (_NL_SavedAbsW/2 - _NL_CW/2),
+					                                    cp.Y.Scale, cp.Y.Offset + (_NL_SavedAbsH/2 - _NL_CH/2)),
+					BackgroundTransparency = _NL_SavedBgTrans,
 				})
-				NeverLose.PlayAnimate(LeftMenuFrame, _NL_CollapseInfo, { Size = UDim2.new(0, 175, 1, 0) })
+				NeverLose.PlayAnimate(UIStroke, _NL_CollapseInfo, { Transparency = 0 })
 				NeverLose.PlayAnimate(WindowName,      _NL_FadeInfo, { TextTransparency = 0 })
 				NeverLose.PlayAnimate(WindowContent,   _NL_FadeInfo, { TextTransparency = 0.650 })
 				NeverLose.PlayAnimate(AccountName,     _NL_FadeInfo, { TextTransparency = 0 })
@@ -6948,12 +6953,16 @@ function NeverLose:CreateWindow(Config)
 			_NL_IsDragging  = false
 		end))
 
-		-- Runs AFTER SetRender's own Signal handler; instantly overrides its size tween
+		-- Runs AFTER SetRender's own Signal handler; instantly overrides its size+bg tween
 		NeverLose:AddSignal(Window.Signal:Connect(function(value)
 			if not _NL_Collapsed then return end
-			-- Direct set cancels current frame, instant tween cancels ongoing SetRender tween
 			WindowFrame.Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
-			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, { Size = UDim2.new(0, _NL_CW, 0, _NL_CH) })
+			WindowFrame.BackgroundTransparency = 1
+			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, {
+				Size = UDim2.new(0, _NL_CW, 0, _NL_CH),
+				BackgroundTransparency = 1,
+			})
+			NeverLose.PlayAnimate(UIStroke, _NL_InstantInfo, { Transparency = 1 })
 			if value then
 				_NL_ApplyCollapsedVisuals()
 			end
