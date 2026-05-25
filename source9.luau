@@ -6807,8 +6807,8 @@ function NeverLose:CreateWindow(Config)
 		local _NL_Collapsed    = false
 		local _NL_CW           = 50
 		local _NL_CH           = 50
-		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-		local _NL_FadeInfo     = TweenInfo.new(0.15, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+		local _NL_FadeInfo     = TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 		local _NL_InstantInfo  = TweenInfo.new(0)
 		local _NL_SavedSize    = nil
 		local _NL_SavedAbsW    = 0
@@ -6847,6 +6847,9 @@ function NeverLose:CreateWindow(Config)
 					if c:IsA("TextLabel") then c.TextTransparency = 1 end
 				end
 
+				-- Clip overflow so LeftMenuFrame (175px) doesn't bleed outside shrinking WindowFrame
+				WindowFrame.ClipsDescendants = true
+
 				-- Shrink window; center the logo inside the 50x50 box
 				local p = WindowFrame.Position
 				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
@@ -6857,10 +6860,6 @@ function NeverLose:CreateWindow(Config)
 				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
 					Position = _NL_LogoCenteredPos,
 				})
-				-- Snap LeftMenuFrame width after animation finishes (no separate tween = no jitter)
-				task.delay(0.32, function()
-					if _NL_Collapsed then LeftMenuFrame.Size = UDim2.new(0, _NL_CW, 1, 0) end
-				end)
 			else
 				_NL_Collapsed = false
 				LeftMenuFrame.Size         = UDim2.new(0, 175, 1, 0)
