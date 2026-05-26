@@ -6101,15 +6101,22 @@ function NeverLose:CreateWindow(Config)
 		function ConfigLib:LoadData(data)
 			local coded = HttpService:JSONDecode(Encryption.reverse(NeverLose.Base64Decode(data)));
 
-			for i,v in next , coded do
-				if v.Idx then
-					if NeverLose.Flags[v.Idx] then
-						task.spawn(function()
-							NeverLose.Flags[v.Idx]:SetValue(v.Value)
-						end)
+			task.spawn(function()
+				local count = 0;
+				for i,v in next , coded do
+					if v.Idx then
+						if NeverLose.Flags[v.Idx] then
+							local ok, err = pcall(function()
+								NeverLose.Flags[v.Idx]:SetValue(v.Value)
+							end)
+							count = count + 1;
+							if count % 3 == 0 then
+								task.wait()
+							end;
+						end;
 					end;
 				end;
-			end;
+			end)
 		end;
 
 		function ConfigLib:RefreshConfig()
@@ -6403,7 +6410,15 @@ function NeverLose:CreateWindow(Config)
 			table.clear(ConfigList);
 		end;
 		
-		task.delay(1,function()
+		task.delay(5,function()
+			pcall(function()
+				local lp = game:GetService("Players").LocalPlayer;
+				if lp then
+					local char = lp.Character or lp.CharacterAdded:Wait();
+				end;
+			end);
+			task.wait(1);
+
 			local ConfigNameStr = ConfigLib:GetSelectedConfig();
 			local path = Window.ConfigFolder..'/'..ConfigNameStr;
 			
@@ -6802,6 +6817,178 @@ function NeverLose:CreateWindow(Config)
 
 		return Watermark_lb;
 	end;
+
+	do
+		local _NL_Collapsed    = false
+		local _NL_CW           = 50
+		local _NL_CH           = 50
+		local _NL_CollapseInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+		local _NL_FadeInfo     = TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+		local _NL_InstantInfo  = TweenInfo.new(0)
+		local _NL_SavedSize    = nil
+		local _NL_SavedAbsW    = 0
+		local _NL_SavedAbsH    = 0
+		local _NL_SavedLogoPos = nil
+		local _NL_LogoCenteredPos = UDim2.new(0, math.floor((_NL_CW - 35) / 2), 0.5, 0)
+
+		local function _NL_SetCollapsed(state)
+			_NL_Collapsed = state
+			if state then
+				_NL_SavedSize    = WindowFrame.Size
+				_NL_SavedLogoPos = LogoImage.Position
+				local sz          = WindowFrame.AbsoluteSize
+				_NL_SavedAbsW    = sz.X
+				_NL_SavedAbsH    = sz.Y
+
+				-- Instantly hide everything except the logo
+				BottomFrame.Visible        = false
+				RightMenuFrame.Visible     = false
+				LeftScrollingFrame.Visible = false
+				WindowName.TextTransparency        = 1
+				WindowContent.TextTransparency     = 1
+				AccountName.TextTransparency       = 1
+				ExpireLabel.TextTransparency       = 1
+				UserSettingButton.TextTransparency = 1
+				for _, tab in next, Window.Tabs do
+					if tab.Idx then
+						for _, c in next, tab.Idx:GetChildren() do
+							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
+								c.TextTransparency = 1
+							end
+						end
+					end
+				end
+				for _, c in next, LeftScrollingFrame:GetChildren() do
+					if c:IsA("TextLabel") then c.TextTransparency = 1 end
+				end
+
+				-- Convert center-anchor position → top-left-anchor position (no visual jump)
+				-- This lets us tween ONLY Size (like SetRender/SetSize), avoiding dual-tween jitter
+				local cp = WindowFrame.Position
+				local tlX = cp.X.Offset - sz.X / 2
+				local tlY = cp.Y.Offset - sz.Y / 2
+				WindowFrame.AnchorPoint = Vector2.new(0, 0)
+				WindowFrame.Position    = UDim2.new(cp.X.Scale, tlX, cp.Y.Scale, tlY)
+
+				-- Animate ONLY Size — top-left corner stays fixed, no position tween, no jitter
+				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
+					Size = UDim2.new(0, _NL_CW, 0, _NL_CH),
+				})
+				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
+					Position = _NL_LogoCenteredPos,
+				})
+			else
+				_NL_Collapsed = false
+				LeftMenuFrame.Size         = UDim2.new(0, 175, 1, 0)
+				LeftScrollingFrame.Visible = true
+				BottomFrame.Visible        = true
+				RightMenuFrame.Visible     = true
+
+				-- Animate ONLY Size (top-left stays fixed = wherever icon was dragged)
+				local finalSize = _NL_SavedSize or Window.Size
+				NeverLose.PlayAnimate(WindowFrame, _NL_CollapseInfo, {
+					Size = finalSize,
+				})
+				NeverLose.PlayAnimate(LogoImage, _NL_CollapseInfo, {
+					Position = _NL_SavedLogoPos or UDim2.new(0, 10, 0.5, 0),
+				})
+				NeverLose.PlayAnimate(WindowName,        _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(WindowContent,     _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(AccountName,       _NL_FadeInfo, { TextTransparency = 0 })
+				NeverLose.PlayAnimate(ExpireLabel,       _NL_FadeInfo, { TextTransparency = 0.650 })
+				NeverLose.PlayAnimate(UserSettingButton, _NL_FadeInfo, { TextTransparency = 0.5 })
+				for i, tab in next, Window.Tabs do
+					if tab.Idx then
+						for _, c in next, tab.Idx:GetChildren() do
+							if c:IsA("TextLabel") and c.Position.X.Offset > 5 then
+								NeverLose.PlayAnimate(c, _NL_FadeInfo, {
+									TextTransparency = (i == Window.CurrentTab) and 0 or 0.5
+								})
+							end
+						end
+					end
+				end
+				for _, c in next, LeftScrollingFrame:GetChildren() do
+					if c:IsA("TextLabel") then NeverLose.PlayAnimate(c, _NL_FadeInfo, { TextTransparency = 0.5 }) end
+				end
+				-- After expansion: restore center anchor so normal dragging/SetRender work correctly
+				task.delay(0.32, function()
+					if not _NL_Collapsed then
+						local p2 = WindowFrame.Position
+						local hw  = finalSize.X.Offset / 2
+						local hh  = finalSize.Y.Offset / 2
+						WindowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+						WindowFrame.Position    = UDim2.new(p2.X.Scale, p2.X.Offset + hw,
+						                                    p2.Y.Scale, p2.Y.Offset + hh)
+					end
+				end)
+			end
+		end
+
+		local _NL_CollapseBtn = Instance.new("TextButton")
+		_NL_CollapseBtn.BackgroundTransparency = 1
+		_NL_CollapseBtn.Size = UDim2.new(1, 0, 1, 0)
+		_NL_CollapseBtn.Text = ""
+		_NL_CollapseBtn.ZIndex = 20
+		_NL_CollapseBtn.Parent = HeadFrame
+
+		local _NL_DragOrigin    = nil
+		local _NL_FrameOrigin   = nil
+		local _NL_IsDragging    = false
+		local _NL_DragThreshold = 6
+
+		NeverLose:AddSignal(_NL_CollapseBtn.InputBegan:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			_NL_IsDragging  = false
+			_NL_DragOrigin  = UserInputService:GetMouseLocation()
+			_NL_FrameOrigin = WindowFrame.Position
+		end))
+
+		NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
+			if not _NL_Collapsed or not _NL_DragOrigin then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local mp    = UserInputService:GetMouseLocation()
+			local delta = mp - _NL_DragOrigin
+			if not _NL_IsDragging and (math.abs(delta.X) > _NL_DragThreshold or math.abs(delta.Y) > _NL_DragThreshold) then
+				_NL_IsDragging = true
+			end
+			if _NL_IsDragging then
+				WindowFrame.Position = UDim2.new(
+					_NL_FrameOrigin.X.Scale, _NL_FrameOrigin.X.Offset + delta.X,
+					_NL_FrameOrigin.Y.Scale, _NL_FrameOrigin.Y.Offset + delta.Y
+				)
+			end
+		end))
+
+		NeverLose:AddSignal(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			if not _NL_DragOrigin then return end
+			if not _NL_IsDragging then
+				_NL_SetCollapsed(not _NL_Collapsed)
+			end
+			_NL_DragOrigin  = nil
+			_NL_FrameOrigin = nil
+			_NL_IsDragging  = false
+		end))
+
+		-- Runs AFTER SetRender's own Signal handler; instantly overrides its size tween
+		NeverLose:AddSignal(Window.Signal:Connect(function(value)
+			if not _NL_Collapsed then return end
+			WindowFrame.Size = UDim2.new(0, _NL_CW, 0, _NL_CH)
+			NeverLose.PlayAnimate(WindowFrame, _NL_InstantInfo, { Size = UDim2.new(0, _NL_CW, 0, _NL_CH) })
+			NeverLose.PlayAnimate(LogoImage,   _NL_InstantInfo, { Position = _NL_LogoCenteredPos })
+			if value then
+				LeftScrollingFrame.Visible = false
+				BottomFrame.Visible        = false
+				RightMenuFrame.Visible     = false
+				NeverLose.PlayAnimate(WindowName,        _NL_InstantInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(WindowContent,     _NL_InstantInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(AccountName,       _NL_InstantInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(ExpireLabel,       _NL_InstantInfo, { TextTransparency = 1 })
+				NeverLose.PlayAnimate(UserSettingButton, _NL_InstantInfo, { TextTransparency = 1 })
+			end
+		end))
+	end
 
 	Window:SetRender(false);
 
