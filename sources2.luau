@@ -7553,7 +7553,7 @@ function NeverLose:Unload()
 		return;	
 	end;
 
-	NeverLose.ScreenGui:Destroy();
+	pcall(function() NeverLose.ScreenGui.Enabled = false end);
 
 	for i,v in next , NeverLose.GlobalSignals do
 		pcall(v.Disconnect,v)
