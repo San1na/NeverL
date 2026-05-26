@@ -6101,22 +6101,15 @@ function NeverLose:CreateWindow(Config)
 		function ConfigLib:LoadData(data)
 			local coded = HttpService:JSONDecode(Encryption.reverse(NeverLose.Base64Decode(data)));
 
-			task.spawn(function()
-				local count = 0;
-				for i,v in next , coded do
-					if v.Idx then
-						if NeverLose.Flags[v.Idx] then
-							local ok, err = pcall(function()
-								NeverLose.Flags[v.Idx]:SetValue(v.Value)
-							end)
-							count = count + 1;
-							if count % 3 == 0 then
-								task.wait()
-							end;
-						end;
+			for i,v in next , coded do
+				if v.Idx then
+					if NeverLose.Flags[v.Idx] then
+						task.spawn(function()
+							NeverLose.Flags[v.Idx]:SetValue(v.Value)
+						end)
 					end;
 				end;
-			end)
+			end;
 		end;
 
 		function ConfigLib:RefreshConfig()
@@ -6410,15 +6403,7 @@ function NeverLose:CreateWindow(Config)
 			table.clear(ConfigList);
 		end;
 		
-		task.delay(5,function()
-			pcall(function()
-				local lp = game:GetService("Players").LocalPlayer;
-				if lp then
-					local char = lp.Character or lp.CharacterAdded:Wait();
-				end;
-			end);
-			task.wait(1);
-
+		task.delay(1,function()
 			local ConfigNameStr = ConfigLib:GetSelectedConfig();
 			local path = Window.ConfigFolder..'/'..ConfigNameStr;
 			
@@ -7553,7 +7538,8 @@ function NeverLose:Unload()
 		return;	
 	end;
 
-	pcall(function() NeverLose.ScreenGui.Enabled = false end);
+	pcall(function()
+    NeverLose.ScreenGui.Enabled = false end);
 
 	for i,v in next , NeverLose.GlobalSignals do
 		pcall(v.Disconnect,v)
