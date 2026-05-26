@@ -6098,18 +6098,30 @@ function NeverLose:CreateWindow(Config)
 			return NeverLose.Base64Encode(Encryption.new(HttpService:JSONEncode(ikc)));
 		end;
 
-		function ConfigLib:LoadData(data)
+		function ConfigLib:LoadData(data, configName)
 			local coded = HttpService:JSONDecode(Encryption.reverse(NeverLose.Base64Decode(data)));
+			local isDefault = (configName == "Default")
 
-			for i,v in next , coded do
-				if v.Idx then
-					if NeverLose.Flags[v.Idx] then
-						task.spawn(function()
-							NeverLose.Flags[v.Idx]:SetValue(v.Value)
-						end)
+			task.spawn(function()
+				local count = 0;
+				for i,v in next , coded do
+					if v.Idx then
+						if NeverLose.Flags[v.Idx] then
+							local valToSet = v.Value
+							if isDefault and type(valToSet) == "boolean" then
+								valToSet = false
+							end
+							local ok, err = pcall(function()
+								NeverLose.Flags[v.Idx]:SetValue(valToSet)
+							end)
+							count = count + 1;
+							if count % 3 == 0 then
+								task.wait()
+							end;
+						end;
 					end;
 				end;
-			end;
+			end)
 		end;
 
 		function ConfigLib:RefreshConfig()
@@ -6354,7 +6366,7 @@ function NeverLose:CreateWindow(Config)
 					if isfile(path) then
 						local data = readfile(path);
 
-						ConfigLib:LoadData(data);
+						ConfigLib:LoadData(data, ConfigNameStr);
 
 						ConfigLib.SelectedConfig = ConfigNameStr;
 						ConfigName.Text = ConfigNameStr;
@@ -6410,7 +6422,7 @@ function NeverLose:CreateWindow(Config)
 			if isfile(path) then
 				local data = readfile(path);
 
-				ConfigLib:LoadData(data);
+				ConfigLib:LoadData(data, ConfigNameStr);
 
 				ConfigLib.SelectedConfig = ConfigNameStr;
 				ConfigName.Text = ConfigNameStr;
